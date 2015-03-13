@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,6 +18,10 @@ namespace SampleAi
 		static void Main()
 		{
 			var r = new Random();
+		    var aim = new Point(0, 0);
+		    var size = new Point(20, 20);
+		    var nonTargetCells = new HashSet<Point>();
+//            Console.WriteLine(new Point(1,2)  new Point(2,3));
 			while (true)
 			{
 				var line = Console.ReadLine();
@@ -27,8 +33,38 @@ namespace SampleAi
 				// Miss <last_shot_X> <last_shot_Y>
 				// Один экземпляр вашей программы может быть использван для проведения нескольких игр подряд.
 				// Сообщение Init сигнализирует о том, что началась новая игра.
-				Console.WriteLine("{0} {1}", r.Next(20), r.Next(20));
+
+			    if (!nonTargetCells.Contains(aim))
+			    {
+                    Console.WriteLine("{0} {1}", aim.X, aim.Y);
+			        nonTargetCells.Add(aim);
+//			        GetDiagonalCells(aim, size).Select(nonTargetCells.Add);
+			    }
+
+			    aim = NextCell(aim, size);
 			}
 		}
+
+	    private static Point NextCell(Point cell, Point size)
+	    {
+            cell.Y++;
+            if (cell.Y >= size.Y)
+            {
+                cell.Y = 0;
+                cell.X++;
+            }
+            if (cell.X >= size.X)
+            {
+                cell.X = 0;
+                cell.Y = 0;
+            }	    
+	        return cell;
+	    }
+
+	    private static IEnumerable<Point> GetDiagonalCells(Point cell, Point size)
+	    {
+            var diagonals = new List<Size> { new Size(1, 1), new Size(1, -1), new Size(-1, -1), new Size(-1, 1) };
+	        return diagonals.Select(diagonal => Point.Add(cell, diagonal));
+	    }
 	}
 }
