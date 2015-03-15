@@ -2,9 +2,6 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Runtime.ExceptionServices;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace SampleAi
 {
@@ -18,10 +15,8 @@ namespace SampleAi
 		static void Main()
 		{
 			var r = new Random();
-		    var aim = new Point(0, 0);
-		    var size = new Point(20, 20);
+		    Point aim = new Point(0, 0), size = new Point(20, 20);
 		    var nonTargetCells = new HashSet<Point>();
-//            Console.WriteLine(new Point(1,2)  new Point(2,3));
 			while (true)
 			{
 				var line = Console.ReadLine();
@@ -32,18 +27,41 @@ namespace SampleAi
 				// Kill <last_shot_X> <last_shot_Y>
 				// Miss <last_shot_X> <last_shot_Y>
 				// Один экземпляр вашей программы может быть использван для проведения нескольких игр подряд.
+
 				// Сообщение Init сигнализирует о том, что началась новая игра.
 
-			    if (!nonTargetCells.Contains(aim))
+                var message = line.Split(' ');
+			    switch (message[0])
 			    {
-                    Console.WriteLine("{0} {1}", aim.X, aim.Y);
-			        nonTargetCells.Add(aim);
-//			        GetDiagonalCells(aim, size).Select(nonTargetCells.Add);
+			        case "Init": 
+                        nonTargetCells.Clear();
+                        aim = new Point(0, 0);
+                        break;
+                    case "Miss":
+                        aim = NextCell(aim, size);
+                        break;
+                    case "Wound":
+    			        GetDiagonalCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        aim = NextCell(aim, size);
+			            break;
+                    case "Kill":
+                        GetDiagonalCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        GetAdjacentCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        aim = NextCell(aim, size);
+			            break;
 			    }
 
-			    aim = NextCell(aim, size);
+			    while (nonTargetCells.Contains(aim))
+			    {
+                    aim = NextCell(aim, size);
+			    }
+
+			    Console.WriteLine("{0} {1}", aim.X, aim.Y);
+			    nonTargetCells.Add(aim);
 			}
 		}
+
+
 
 	    private static Point NextCell(Point cell, Point size)
 	    {
@@ -66,5 +84,11 @@ namespace SampleAi
             var diagonals = new List<Size> { new Size(1, 1), new Size(1, -1), new Size(-1, -1), new Size(-1, 1) };
 	        return diagonals.Select(diagonal => Point.Add(cell, diagonal));
 	    }
+
+        private static IEnumerable<Point> GetAdjacentCells(Point cell, Point size)
+        {
+            var adjacency = new List<Size> { new Size(0, 1), new Size(1, 0), new Size(0, -1), new Size(-1, 0) };
+            return adjacency.Select(adj => Point.Add(cell, adj));
+        }
 	}
 }
