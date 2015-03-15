@@ -12,6 +12,11 @@ namespace SampleAi
 		// Вам нужно читать информацию с консоли и писать команды на консоль.
 		// Конец ввода — это сигнал к завершению программы.
 
+        private static readonly IEnumerable<Size> diagonals = 
+            new List<Size> { new Size(1, 1), new Size(1, -1), new Size(-1, -1), new Size(-1, 1) };
+        private static readonly IEnumerable<Size> adjacency = 
+            new List<Size> { new Size(0, 1), new Size(1, 0), new Size(0, -1), new Size(-1, 0) };
+
 		static void Main()
 		{
 			var r = new Random();
@@ -38,22 +43,22 @@ namespace SampleAi
                         aim = new Point(0, 0);
                         break;
                     case "Miss":
-                        aim = NextCell(aim, size);
+                        aim = NextCell(size, nonTargetCells, r);
                         break;
                     case "Wound":
-    			        GetDiagonalCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        aim = NextCell(aim, size);
+    			        GetOffsetCells(aim, size, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        aim = NextCell(size, nonTargetCells, r);
 			            break;
                     case "Kill":
-                        GetDiagonalCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        GetAdjacentCells(aim, size).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        aim = NextCell(aim, size);
+			            var neighbourhood = diagonals.Union(adjacency);
+                        GetOffsetCells(aim, size, neighbourhood).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        aim = NextCell(size, nonTargetCells, r);
 			            break;
 			    }
 
 			    while (nonTargetCells.Contains(aim))
 			    {
-                    aim = NextCell(aim, size);
+                    aim = NextCell(size, nonTargetCells, r);
 			    }
 
 			    Console.WriteLine("{0} {1}", aim.X, aim.Y);
@@ -63,32 +68,19 @@ namespace SampleAi
 
 
 
-	    private static Point NextCell(Point cell, Point size)
+	    private static Point NextCell(Point size, ICollection<Point> excluded, Random r)
 	    {
-            cell.Y++;
-            if (cell.Y >= size.Y)
-            {
-                cell.Y = 0;
-                cell.X++;
-            }
-            if (cell.X >= size.X)
-            {
-                cell.X = 0;
-                cell.Y = 0;
-            }	    
+	        var cell = new Point(r.Next(size.X), r.Next(size.Y));
+	        while (excluded.Contains(cell))
+	        {
+                cell = new Point(r.Next(size.X), r.Next(size.Y));
+	        }
 	        return cell;
 	    }
 
-	    private static IEnumerable<Point> GetDiagonalCells(Point cell, Point size)
+	    private static IEnumerable<Point> GetOffsetCells(Point cell, Point size, IEnumerable<Size> offsets)
 	    {
-            var diagonals = new List<Size> { new Size(1, 1), new Size(1, -1), new Size(-1, -1), new Size(-1, 1) };
-	        return diagonals.Select(diagonal => Point.Add(cell, diagonal));
+	        return offsets.Select(offset => Point.Add(cell, offset));
 	    }
-
-        private static IEnumerable<Point> GetAdjacentCells(Point cell, Point size)
-        {
-            var adjacency = new List<Size> { new Size(0, 1), new Size(1, 0), new Size(0, -1), new Size(-1, 0) };
-            return adjacency.Select(adj => Point.Add(cell, adj));
-        }
 	}
 }
