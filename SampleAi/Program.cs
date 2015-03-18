@@ -20,7 +20,8 @@ namespace SampleAi
 		static void Main()
 		{
 			var r = new Random();
-		    Point aim = new Point(0, 0), size = new Point(20, 20);
+		    var aim = new Point(0, 0);
+            var boardSize = new Size(20, 20);
 		    var nonTargetCells = new HashSet<Point>();
 			while (true)
 			{
@@ -43,22 +44,52 @@ namespace SampleAi
                         aim = new Point(0, 0);
                         break;
                     case "Miss":
-                        aim = NextCell(size, nonTargetCells, r);
+                        aim = NextCell(boardSize, nonTargetCells, r);
                         break;
                     case "Wound":
-    			        GetOffsetCells(aim, size, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        aim = NextCell(size, nonTargetCells, r);
+    			        GetOffsetCells(aim, boardSize, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
+
+                        // Try and destroy the current ship
+			            var destroyed = false;
+			            var firstCell = aim;
+
+			            foreach (var direction in adjacency)
+			            {                            
+			                aim = firstCell;
+                            aim = Point.Add(aim, direction);
+			                if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) continue;
+                            Console.WriteLine("{0} {1}", aim.X, aim.Y);
+			                nonTargetCells.Add(aim);
+
+                            line = Console.ReadLine();
+				            if (line == null) return;
+                            message = line.Split(' ');
+
+			                while (message[0] != "Miss")
+			                {
+			                    if (message[0] == "Kill")
+			                    {
+                                    GetOffsetCells(aim, boardSize, adjacency).ToList().ForEach(cell => nonTargetCells.Add(cell));
+			                        break;
+			                    }
+                                aim = Point.Add(aim, direction);
+                                if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) break;
+                                Console.WriteLine("{0} {1}", aim.X, aim.Y);
+                                nonTargetCells.Add(aim);
+
+                                line = Console.ReadLine();
+                                if (line == null) return;
+                                message = line.Split(' ');
+			                }
+			            }
+
+                        aim = NextCell(boardSize, nonTargetCells, r);
 			            break;
                     case "Kill":
 			            var neighbourhood = diagonals.Union(adjacency);
-                        GetOffsetCells(aim, size, neighbourhood).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        aim = NextCell(size, nonTargetCells, r);
+                        GetOffsetCells(aim, boardSize, neighbourhood).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        aim = NextCell(boardSize, nonTargetCells, r);
 			            break;
-			    }
-
-			    while (nonTargetCells.Contains(aim))
-			    {
-                    aim = NextCell(size, nonTargetCells, r);
 			    }
 
 			    Console.WriteLine("{0} {1}", aim.X, aim.Y);
@@ -66,19 +97,24 @@ namespace SampleAi
 			}
 		}
 
-
-
-	    private static Point NextCell(Point size, ICollection<Point> excluded, Random r)
+	    private static bool WithinBoard(Point cell, Size size)
 	    {
-	        var cell = new Point(r.Next(size.X), r.Next(size.Y));
+	        var withinVertically = 0 <= cell.X && cell.X < size.Height;
+	        var withinHorizontally = 0 <= cell.Y && cell.Y < size.Width;
+	        return withinVertically && withinHorizontally;
+	    }
+
+	    private static Point NextCell(Size size, ICollection<Point> excluded, Random r)
+	    {
+	        var cell = new Point(r.Next(size.Height), r.Next(size.Width));
 	        while (excluded.Contains(cell))
 	        {
-                cell = new Point(r.Next(size.X), r.Next(size.Y));
+                cell = new Point(r.Next(size.Height), r.Next(size.Width));
 	        }
 	        return cell;
 	    }
 
-	    private static IEnumerable<Point> GetOffsetCells(Point cell, Point size, IEnumerable<Size> offsets)
+	    private static IEnumerable<Point> GetOffsetCells(Point cell, Size size, IEnumerable<Size> offsets)
 	    {
 	        return offsets.Select(offset => Point.Add(cell, offset));
 	    }
