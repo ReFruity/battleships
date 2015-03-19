@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace battleships
 {
     public enum Cell
     {
-        Empty = 0,
+        Empty,
         Ship,
         DeadOrWoundedShip,
         Miss
@@ -21,104 +22,106 @@ namespace battleships
 
     public class Ship
     {
-        public Ship(Vector location, int size, bool direction)
-        {
-            Location = location;
-            Size = size;
-            Direction = direction;
-            AliveCells = new HashSet<Vector>(GetOccupiedCells());
-        }
+        public int Size { get; private set; }
+
+        public Direction ShipDirection { get; private set; }
+
+        public HashSet<Vector> AliveCells;
 
         public bool IsAlive { get { return AliveCells.Any(); } }
 
         public Vector Location { get; private set; }
 
-        public List<Vector> GetOccupiedCells()
+        public Ship(Vector location, int size, Direction shipDirection)
         {
-            var direction = Direction ? new Vector(1, 0) : new Vector(0, 1);
-            var list1 = new List<Vector>();
-            for (int i = 0; i < Size; i++)
-            {
-                var shipCell = direction.Mult(i).Add(Location);
-                list1.Add(shipCell);
-            }
-            return list1;
+            Location = location;
+            Size = size;
+            ShipDirection = shipDirection;
+            AliveCells = new HashSet<Vector>(GetOccupiedCells());
         }
 
-        ///<summary>Размер корабля</summary>
-        public int Size { get; private set; }
+        public List<Vector> GetOccupiedCells()
+        {
+            var directionVector = GetDirectionVector(ShipDirection);
+            var occupiedCells = new List<Vector>();
+            for (int i = 0; i < Size; i++)
+            {
+                var shipCell = directionVector.Mult(i).Add(Location);
+                occupiedCells.Add(shipCell);
+            }
+            return occupiedCells;
+        }
 
-        ///<summary>Направление корабля. True — горизонтальное. False — вертикальное</summary>
-        public bool Direction { get; private set; }
+        public static Vector GetDirectionVector(Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.Horizontal: return new Vector(1, 0);
+                case Direction.Vertical: return new Vector(0, 1);
+                default: throw new ArgumentException("Unknown ship direction.");
+            }
+        }
 
-        ///<summary>Живые клетки корабля</summary>
-        public HashSet<Vector> AliveCells;
+        public enum Direction
+        {
+            Vertical,
+            Horizontal
+        } 
     }
 
-
-    /////////////////////////////////////////////////////////////////////////////////////////////////
-    /// Карта
-    /////////////////////////////////////////////////////////////////////////////////////////////////
-
-
-    ///<summary>Карта</summary>
     public class Map
     {
-        private static Cell[,] cells;
-        public static Ship[,] shipsMap;
+        private static Cell[,] Cells;
 
-        ///<summary>Конструктор</summary>
+        public static Ship[,] FieldedShips;
+
+        public List<Ship> Ships = new List<Ship>();
+
+        public int Width { get; private set; }
+
+        public int Height { get; private set; }
+
         public Map(int width, int height)
         {
             Width = width;
             Height = height;
-            cells = new Cell[width, height];
-            shipsMap = new Ship[width, height];
+            Cells = new Cell[width, height];
+            FieldedShips = new Ship[width, height];
         }
-
-        ///<summary>Корабли на поле</summary>
-        public List<Ship> Ships = new List<Ship>();
-
-        ///<summary>Ширина поля</summary>
-        public int Width { get; private set; }
-        ///<summary>Высота поля</summary>
-        public int Height { get; private set; }
 
         public Cell this[Vector p]
         {
             get
             {
-                return CheckBounds(p) ? cells[p.X, p.Y] : Cell.Empty; // Благодаря этому трюку иногда можно будет не проверять на выход за пределы поля. 
+                return CheckBounds(p) ? Cells[p.X, p.Y] : Cell.Empty; // Благодаря этому трюку иногда можно будет не проверять на выход за пределы поля. 
             }
             private set
             {
                 if (!CheckBounds(p))
                     throw new IndexOutOfRangeException(p + " is not in the map borders"); // Поможет отлавливать ошибки в коде.
-                cells[p.X, p.Y] = value;
+                Cells[p.X, p.Y] = value;
             }
         }
 
-        ///<summary>Помещает корабль длинной i в точку v, смотрящий в направлении d</summary>
-        public bool Set(Vector v, int n, bool direction)
+        public bool PutShip(Vector location, int length, Ship.Direction direction)
         {
-            var ship = new Ship(v, n, direction);
+            var ship = new Ship(location, length, direction);
             var shipCells = ship.GetOccupiedCells();
+
             //Если рядом есть непустая клетка, то поместить корабль нельзя!
             if (shipCells.SelectMany(Neighbours).Any(c => this[c] != Cell.Empty)) return false;
             //Если корабль не помещается — тоже нельзя
             if (!shipCells.All(CheckBounds)) return false;
 
-            // Иначе, ставим корабль
             foreach (var cell in shipCells)
             {
                 this[cell] = Cell.Ship;
-                shipsMap[cell.X, cell.Y] = ship;
+                FieldedShips[cell.X, cell.Y] = ship;
             }
             Ships.Add(ship);
             return true;
         }
 
-        ///<summary>Бойтесь все!!!</summary>
         public ShotEffect Shoot(Vector target)
         {
             var hit = CheckBounds(target) && this[target] == Cell.Ship;
@@ -126,7 +129,7 @@ namespace battleships
 
             if (hit)
             {
-                var ship = shipsMap[target.X, target.Y];
+                var ship = FieldedShips[target.X, target.Y];
                 ship.AliveCells.Remove(target);
                 this[target] = Cell.DeadOrWoundedShip;
                 return ship.IsAlive ? ShotEffect.Wound : ShotEffect.Kill;
