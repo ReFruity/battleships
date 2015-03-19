@@ -32,8 +32,10 @@ namespace battleships
 			var cells = Vector.Rect(0, 0, width, height).OrderBy(v => random.Next());
 			foreach (var loc in cells)
 			{
-				var horizontal = random.Next(2) == 0;
-				if (map.Set(loc, size, horizontal) || map.Set(loc, size, !horizontal)) return;
+                var randomNumber = random.Next(2);
+                var direction = (Ship.Direction) randomNumber;
+                var opposite = (Ship.Direction) ((randomNumber + 1) % 2);
+				if (map.PutShip(loc, size, direction) || map.PutShip(loc, size, opposite)) return;
 			}
 			throw new Exception("Can't put next ship on map. No free space");
 		}
