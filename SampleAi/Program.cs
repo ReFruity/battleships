@@ -22,10 +22,12 @@ namespace SampleAi
 
 		static void Main()
 		{
-			var r = new Random();
+			var random = new Random();
 		    var aim = new Point(0, 0);
             var boardSize = new Size(20, 20);
 		    var nonTargetCells = new HashSet<Point>();
+		    var hotspots = new Stack<Point>();
+
 			while (true)
 			{
 				var line = Console.ReadLine();
@@ -44,65 +46,33 @@ namespace SampleAi
 			    {
 			        case "Init": 
                         nonTargetCells.Clear();
-                        aim = new Point(0, 0);
+                        hotspots.Clear();
+			            aim = NextCell(boardSize, nonTargetCells, hotspots, random);
                         boardSize.Width = int.Parse(message[1]);
 			            boardSize.Height = int.Parse(message[2]);
                         break;
 
                     case "Miss":
-                        aim = NextCell(boardSize, nonTargetCells, r);
+                        nonTargetCells.Add(aim);
+                        aim = NextCell(boardSize, nonTargetCells, hotspots, random);
                         break;
 
                     case "Wound":
     			        GetOffsetCells(aim, boardSize, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
-
-                        // Try and destroy the current ship
-			            var firstCell = aim;
-
-			            foreach (var direction in adjacency)
-			            {                            
-			                aim = firstCell;
-                            aim = Point.Add(aim, direction);
-			                if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) continue;
-
-                            Console.WriteLine("{0} {1}", aim.X, aim.Y);
-			                nonTargetCells.Add(aim);
-
-                            line = Console.ReadLine();
-				            if (line == null) return;
-                            message = line.Split(' ');
-
-			                while (message[0] != "Miss")
-			                {
-			                    if (message[0] == "Kill")
-			                    {
-                                    GetOffsetCells(aim, boardSize, neighbours).ToList().ForEach(cell => nonTargetCells.Add(cell));
-			                        break;
-			                    }
-                                GetOffsetCells(aim, boardSize, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                                aim = Point.Add(aim, direction);
-                                if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) break;
-
-                                Console.WriteLine("{0} {1}", aim.X, aim.Y);
-                                nonTargetCells.Add(aim);
-
-                                line = Console.ReadLine();
-                                if (line == null) return;
-                                message = line.Split(' ');
-			                }
-			            }
-
-                        aim = NextCell(boardSize, nonTargetCells, r);
+                        nonTargetCells.Add(aim);
+                        hotspots.Push(aim);
+                        aim = NextCell(boardSize, nonTargetCells, hotspots, random);
 			            break;
 
                     case "Kill":
                         GetOffsetCells(aim, boardSize, neighbours).ToList().ForEach(cell => nonTargetCells.Add(cell));
-                        aim = NextCell(boardSize, nonTargetCells, r);
+                        nonTargetCells.Add(aim);
+                        hotspots.Push(aim);
+                        aim = NextCell(boardSize, nonTargetCells, hotspots, random);
 			            break;
 			    }
 
 			    Console.WriteLine("{0} {1}", aim.X, aim.Y);
-			    nonTargetCells.Add(aim);
 			}
 		}
 
@@ -113,12 +83,20 @@ namespace SampleAi
 	        return withinVertically && withinHorizontally;
 	    }
 
-	    private static Point NextCell(Size size, ICollection<Point> excluded, Random random)
+	    private static Point NextCell(Size size, ICollection<Point> excluded, Stack<Point> hotspots, Random random)
 	    {
-	        Point cell;
-	        do { cell = new Point(random.Next(size.Height), random.Next(size.Width)); } 
-            while (excluded.Contains(cell));
-	        return cell;
+	        while (hotspots.Count > 0)
+	        {
+	            var hotspot = hotspots.Peek();
+	            var candidates = GetOffsetCells(hotspot, size, adjacency).Where(cell => !excluded.Contains(cell)).ToList();
+	            if (candidates.Any()) return candidates[0];
+	            hotspots.Pop();
+	        }
+
+	        Point nextCell;
+	        do { nextCell = new Point(random.Next(size.Height), random.Next(size.Width)); } 
+            while (excluded.Contains(nextCell));
+	        return nextCell;
 	    }
 
 	    private static IEnumerable<Point> GetOffsetCells(Point cell, Size size, IEnumerable<Size> offsets)
