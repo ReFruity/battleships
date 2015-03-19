@@ -14,8 +14,11 @@ namespace SampleAi
 
         private static readonly IEnumerable<Size> diagonals = 
             new List<Size> { new Size(1, 1), new Size(1, -1), new Size(-1, -1), new Size(-1, 1) };
+
         private static readonly IEnumerable<Size> adjacency = 
             new List<Size> { new Size(0, 1), new Size(1, 0), new Size(0, -1), new Size(-1, 0) };
+
+	    private static readonly IEnumerable<Size> neighbours = diagonals.Union(adjacency);
 
 		static void Main()
 		{
@@ -42,15 +45,18 @@ namespace SampleAi
 			        case "Init": 
                         nonTargetCells.Clear();
                         aim = new Point(0, 0);
+                        boardSize.Width = int.Parse(message[1]);
+			            boardSize.Height = int.Parse(message[2]);
                         break;
+
                     case "Miss":
                         aim = NextCell(boardSize, nonTargetCells, r);
                         break;
+
                     case "Wound":
     			        GetOffsetCells(aim, boardSize, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
 
                         // Try and destroy the current ship
-			            var destroyed = false;
 			            var firstCell = aim;
 
 			            foreach (var direction in adjacency)
@@ -58,6 +64,7 @@ namespace SampleAi
 			                aim = firstCell;
                             aim = Point.Add(aim, direction);
 			                if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) continue;
+
                             Console.WriteLine("{0} {1}", aim.X, aim.Y);
 			                nonTargetCells.Add(aim);
 
@@ -69,11 +76,13 @@ namespace SampleAi
 			                {
 			                    if (message[0] == "Kill")
 			                    {
-                                    GetOffsetCells(aim, boardSize, adjacency).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                                    GetOffsetCells(aim, boardSize, neighbours).ToList().ForEach(cell => nonTargetCells.Add(cell));
 			                        break;
 			                    }
+                                GetOffsetCells(aim, boardSize, diagonals).ToList().ForEach(cell => nonTargetCells.Add(cell));
                                 aim = Point.Add(aim, direction);
                                 if (!WithinBoard(aim, boardSize) || nonTargetCells.Contains(aim)) break;
+
                                 Console.WriteLine("{0} {1}", aim.X, aim.Y);
                                 nonTargetCells.Add(aim);
 
@@ -85,9 +94,9 @@ namespace SampleAi
 
                         aim = NextCell(boardSize, nonTargetCells, r);
 			            break;
+
                     case "Kill":
-			            var neighbourhood = diagonals.Union(adjacency);
-                        GetOffsetCells(aim, boardSize, neighbourhood).ToList().ForEach(cell => nonTargetCells.Add(cell));
+                        GetOffsetCells(aim, boardSize, neighbours).ToList().ForEach(cell => nonTargetCells.Add(cell));
                         aim = NextCell(boardSize, nonTargetCells, r);
 			            break;
 			    }
@@ -104,19 +113,20 @@ namespace SampleAi
 	        return withinVertically && withinHorizontally;
 	    }
 
-	    private static Point NextCell(Size size, ICollection<Point> excluded, Random r)
+	    private static Point NextCell(Size size, ICollection<Point> excluded, Random random)
 	    {
-	        var cell = new Point(r.Next(size.Height), r.Next(size.Width));
-	        while (excluded.Contains(cell))
-	        {
-                cell = new Point(r.Next(size.Height), r.Next(size.Width));
-	        }
+	        Point cell;
+	        do { cell = new Point(random.Next(size.Height), random.Next(size.Width)); } 
+            while (excluded.Contains(cell));
 	        return cell;
 	    }
 
 	    private static IEnumerable<Point> GetOffsetCells(Point cell, Size size, IEnumerable<Size> offsets)
 	    {
-	        return offsets.Select(offset => Point.Add(cell, offset));
-	    }
+	        return from offset in offsets
+	            let point = Point.Add(cell, offset)
+	            where WithinBoard(point, size)
+	            select point;
+	    } 
 	}
 }
