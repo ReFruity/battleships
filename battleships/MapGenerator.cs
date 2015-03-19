@@ -34,7 +34,7 @@ namespace battleships
 			{
                 var randomNumber = random.Next(2);
                 var direction = (Ship.Direction) randomNumber;
-                var opposite = (Ship.Direction) randomNumber + 1 % 2;
+                var opposite = (Ship.Direction) ((randomNumber + 1) % 2);
 				if (map.PutShip(loc, size, direction) || map.PutShip(loc, size, opposite)) return;
 			}
 			throw new Exception("Can't put next ship on map. No free space");

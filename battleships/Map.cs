@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
-using System.Runtime.InteropServices;
 
 namespace battleships
 {
@@ -40,16 +40,18 @@ namespace battleships
             AliveCells = new HashSet<Vector>(GetOccupiedCells());
         }
 
+        public enum Direction
+        {
+            Vertical,
+            Horizontal
+        } 
+
         public List<Vector> GetOccupiedCells()
         {
             var directionVector = GetDirectionVector(ShipDirection);
-            var occupiedCells = new List<Vector>();
-            for (int i = 0; i < Size; i++)
-            {
-                var shipCell = directionVector.Mult(i).Add(Location);
-                occupiedCells.Add(shipCell);
-            }
-            return occupiedCells;
+            return (from i in Enumerable.Range(0, Size) 
+                    select directionVector.Mult(i).Add(Location))
+                    .ToList();
         }
 
         public static Vector GetDirectionVector(Direction direction)
@@ -61,19 +63,13 @@ namespace battleships
                 default: throw new ArgumentException("Unknown ship direction.");
             }
         }
-
-        public enum Direction
-        {
-            Vertical,
-            Horizontal
-        } 
     }
 
     public class Map
     {
         private static Cell[,] Cells;
 
-        public static Ship[,] FieldedShips;
+        public static Ship[,] ShipsMap;
 
         public List<Ship> Ships = new List<Ship>();
 
@@ -86,19 +82,21 @@ namespace battleships
             Width = width;
             Height = height;
             Cells = new Cell[width, height];
-            FieldedShips = new Ship[width, height];
+            ShipsMap = new Ship[width, height];
         }
 
         public Cell this[Vector p]
         {
             get
             {
-                return CheckBounds(p) ? Cells[p.X, p.Y] : Cell.Empty; // Благодаря этому трюку иногда можно будет не проверять на выход за пределы поля. 
+                if (!CheckBounds(p))
+                    throw new IndexOutOfRangeException(p + " is not in the map borders");
+                return Cells[p.X, p.Y];
             }
             private set
             {
                 if (!CheckBounds(p))
-                    throw new IndexOutOfRangeException(p + " is not in the map borders"); // Поможет отлавливать ошибки в коде.
+                    throw new IndexOutOfRangeException(p + " is not in the map borders");
                 Cells[p.X, p.Y] = value;
             }
         }
@@ -113,59 +111,50 @@ namespace battleships
             //Если корабль не помещается — тоже нельзя
             if (!shipCells.All(CheckBounds)) return false;
 
-            foreach (var cell in shipCells)
+            shipCells.ForEach(cell =>
             {
                 this[cell] = Cell.Ship;
-                FieldedShips[cell.X, cell.Y] = ship;
-            }
+                ShipsMap[cell.X, cell.Y] = ship;
+            });
+
             Ships.Add(ship);
+
             return true;
         }
 
         public ShotEffect Shoot(Vector target)
         {
             var hit = CheckBounds(target) && this[target] == Cell.Ship;
-
-
             if (hit)
             {
-                var ship = FieldedShips[target.X, target.Y];
+                var ship = ShipsMap[target.X, target.Y];
                 ship.AliveCells.Remove(target);
                 this[target] = Cell.DeadOrWoundedShip;
                 return ship.IsAlive ? ShotEffect.Wound : ShotEffect.Kill;
             }
 
-
             if (this[target] == Cell.Empty) this[target] = Cell.Miss;
             return ShotEffect.Miss;
         }
 
-        ///<summary>Окрестность ячейки</summary>
         public IEnumerable<Vector> Neighbours(Vector cell)
         {
             return
-                from i in new[] { -1, 0, 1 } //x
-                from j in new[] { -1, 0, 1 } //y
-                let c = cell.Add(new Vector(i, j))
+                from x in new[] { -1, 0, 1 }
+                from y in new[] { -1, 0, 1 }
+                let c = cell.Add(new Vector(x, y))
                 where CheckBounds(c)
                 select c;
         }
 
-        ///<summary>Проверка на выход за границы</summary>
         public bool CheckBounds(Vector p)
         {
             return p.X >= 0 && p.X < Width && p.Y >= 0 && p.Y < Height;
         }
 
-        ///<summary>Есть ли хоть одна живая клетка</summary>
         public bool HasAliveShips()
         {
-            for (int index = 0; index < Ships.Count; index++)
-            {
-                var s = Ships[index];
-                if (s.IsAlive) return true;
-            }
-            return false;
+            return Ships.Any(s => s.IsAlive);
         }
     }
 }
