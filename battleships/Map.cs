@@ -92,12 +92,11 @@ namespace battleships
             private set { Cells[p.X, p.Y] = value; }
         }
 
-        public bool PutShip(Vector location, int length, Ship.Direction direction)
+        public bool PlaceShip(Ship ship)
         {
-            var ship = new Ship(location, length, direction);
-            var shipCells = ship.GetOccupiedCells();
+            if (!CanPlaceShip(ship)) return false;
 
-            if (ExistsNonEmptyAdjacentCell(shipCells) || !ShipFits(shipCells)) return false;
+            var shipCells = ship.GetOccupiedCells();
 
             shipCells.ForEach(cell =>
             {
@@ -153,14 +152,21 @@ namespace battleships
             return Ships.Any(s => s.IsAlive);
         }
 
-        private bool ShipFits(IEnumerable<Vector> shipCells)
+        public bool CanPlaceShip(Ship ship)
         {
-            return shipCells.All(CheckBounds);
+            var shipCells = ship.GetOccupiedCells();
+            return CellsFit(shipCells) && AdjacentCellsAreEmpty(shipCells);
         }
 
-        private bool ExistsNonEmptyAdjacentCell(IEnumerable<Vector> shipCells)
+        private bool CellsFit(IEnumerable<Vector> cells)
         {
-            return shipCells.SelectMany(Neighbours).Any(c => this[c] != Cell.Empty);
+            return cells.All(CheckBounds);
+        }
+
+        private bool AdjacentCellsAreEmpty(IEnumerable<Vector> cells)
+        {
+            var debug = cells.SelectMany(Neighbours).Distinct().ToList();
+            return cells.SelectMany(Neighbours).All(c => this[c] == Cell.Empty);
         }
     }
 }
