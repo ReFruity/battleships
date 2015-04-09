@@ -9,23 +9,32 @@ namespace battleships
 		public void put_ship_inside_map_bounds()
 		{
 			var map = new Map(100, 10);
-			Assert.IsTrue(map.PutShip(new Vector(0, 0), 5, Ship.Direction.Horizontal));
-			Assert.IsTrue(map.PutShip(new Vector(95, 9), 5, Ship.Direction.Horizontal));
+			Assert.IsTrue(map.PlaceShip(new Ship(new Vector(0, 0), 5, Ship.Direction.Horizontal)));
+			Assert.IsTrue(map.PlaceShip(new Ship(new Vector(95, 9), 5, Ship.Direction.Horizontal)));
 		}
 
 		[Test]
 		public void not_put_ship_outside_map()
 		{
 			var map = new Map(100, 10);
-			Assert.IsFalse(map.PutShip(new Vector(99, 9), 2, Ship.Direction.Horizontal));
-			Assert.IsFalse(map.PutShip(new Vector(99, 9), 2, Ship.Direction.Vertical));
+			Assert.IsFalse(map.PlaceShip(new Ship(new Vector(99, 9), 2, Ship.Direction.Horizontal)));
+			Assert.IsFalse(map.PlaceShip(new Ship(new Vector(99, 9), 2, Ship.Direction.Vertical)));
 		}
+
+        [Test]
+        public void not_put_adjacent_ship()
+        {
+            var map = new Map(100, 10);
+            map.PlaceShip(new Ship(new Vector(0, 0), 2, Ship.Direction.Horizontal));
+            Assert.IsFalse(map.PlaceShip(new Ship(new Vector(2, 1), 2, Ship.Direction.Vertical)));
+            Assert.IsFalse(map.PlaceShip(new Ship(new Vector(1, 1), 2, Ship.Direction.Horizontal)));
+        }
 
 		[Test]
 		public void kill_ship()
 		{
 			var map = new Map(100, 10);
-			map.PutShip(new Vector(0, 0), 1, Ship.Direction.Horizontal);
+			map.PlaceShip(new Ship(new Vector(0, 0), 1, Ship.Direction.Horizontal));
 			Assert.AreEqual(ShotEffect.Kill, map.Shoot(new Vector(0, 0)));
 			Assert.AreEqual(Cell.DeadOrWoundedShip, map[new Vector(0, 0)]);
 		}
@@ -34,7 +43,7 @@ namespace battleships
 		public void wound_ship()
 		{
 			var map = new Map(100, 10);
-			map.PutShip(new Vector(0, 0), 2, Ship.Direction.Horizontal);
+			map.PlaceShip(new Ship(new Vector(0, 0), 2, Ship.Direction.Horizontal));
 			Assert.AreEqual(ShotEffect.Wound, map.Shoot(new Vector(0, 0)));
 			Assert.AreEqual(Cell.DeadOrWoundedShip, map[new Vector(0, 0)]);
 			Assert.AreEqual(Cell.Ship, map[new Vector(1, 0)]);
