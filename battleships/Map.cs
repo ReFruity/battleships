@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace battleships
@@ -26,7 +25,7 @@ namespace battleships
 
         public Direction ShipDirection { get; private set; }
 
-        public HashSet<Vector> AliveCells;
+        public HashSet<Vector> AliveCells { get; private set; }
 
         public bool IsAlive { get { return AliveCells.Any(); } }
 
@@ -67,11 +66,11 @@ namespace battleships
 
     public class Map
     {
-        private static Cell[,] Cells;
+        public Cell[,] Cells { get; private set; }
 
-        public static Ship[,] ShipsMap;
+        public Ship[,] ShipsMap { get; private set; }
 
-        public List<Ship> Ships = new List<Ship>();
+        public List<Ship> Ships { get; private set; }
 
         public int Width { get; private set; }
 
@@ -83,22 +82,14 @@ namespace battleships
             Height = height;
             Cells = new Cell[width, height];
             ShipsMap = new Ship[width, height];
+            Ships = new List<Ship>();
         }
 
         public Cell this[Vector p]
         {
-            get
-            {
-                if (!CheckBounds(p))
-                    throw new IndexOutOfRangeException(p + " is not in the map borders");
-                return Cells[p.X, p.Y];
-            }
-            private set
-            {
-                if (!CheckBounds(p))
-                    throw new IndexOutOfRangeException(p + " is not in the map borders");
-                Cells[p.X, p.Y] = value;
-            }
+            get { return Cells[p.X, p.Y]; }
+
+            private set { Cells[p.X, p.Y] = value; }
         }
 
         public bool PutShip(Vector location, int length, Ship.Direction direction)
@@ -106,10 +97,7 @@ namespace battleships
             var ship = new Ship(location, length, direction);
             var shipCells = ship.GetOccupiedCells();
 
-            //Если рядом есть непустая клетка, то поместить корабль нельзя!
-            if (shipCells.SelectMany(Neighbours).Any(c => this[c] != Cell.Empty)) return false;
-            //Если корабль не помещается — тоже нельзя
-            if (!shipCells.All(CheckBounds)) return false;
+            if (ExistsNonEmptyAdjacentCell(shipCells) || !ShipFits(shipCells)) return false;
 
             shipCells.ForEach(cell =>
             {
@@ -124,16 +112,24 @@ namespace battleships
 
         public ShotEffect Shoot(Vector target)
         {
-            var hit = CheckBounds(target) && this[target] == Cell.Ship;
-            if (hit)
+            var withinBoard = CheckBounds(target);
+            if (withinBoard)
             {
-                var ship = ShipsMap[target.X, target.Y];
-                ship.AliveCells.Remove(target);
-                this[target] = Cell.DeadOrWoundedShip;
-                return ship.IsAlive ? ShotEffect.Wound : ShotEffect.Kill;
-            }
+                var hitShip = this[target] == Cell.Ship;
+                if (hitShip)
+                {
+                    var ship = ShipsMap[target.X, target.Y];
+                    ship.AliveCells.Remove(target);
+                    this[target] = Cell.DeadOrWoundedShip;
+                    return ship.IsAlive ? ShotEffect.Wound : ShotEffect.Kill;
+                }
 
-            if (this[target] == Cell.Empty) this[target] = Cell.Miss;
+                var miss = this[target] == Cell.Empty;
+                if (miss)
+                {
+                    this[target] = Cell.Miss;
+                }
+            }
             return ShotEffect.Miss;
         }
 
@@ -155,6 +151,16 @@ namespace battleships
         public bool HasAliveShips()
         {
             return Ships.Any(s => s.IsAlive);
+        }
+
+        private bool ShipFits(IEnumerable<Vector> shipCells)
+        {
+            return shipCells.All(CheckBounds);
+        }
+
+        private bool ExistsNonEmptyAdjacentCell(IEnumerable<Vector> shipCells)
+        {
+            return shipCells.SelectMany(Neighbours).Any(c => this[c] != Cell.Empty);
         }
     }
 }
