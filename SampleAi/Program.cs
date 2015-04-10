@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Linq;
-using System.Net.Mail;
-using System.Runtime.InteropServices;
 
 namespace SampleAi
 {
@@ -25,10 +23,8 @@ namespace SampleAi
 
         static void Main()
         {
-//            Console.SetIn(File.OpenText("input.txt"));
-//            var random = new Random();
-            var random = new Random(42);
-            // Sequence: (6,1) (1,5) (1,2) (7,5) (0,2)
+            var random = new Random();
+            var sequence = new Stack<Point>();
             var aim = new Point(0, 0);
             var boardSize = new Size(0, 0);
             var nonTargetCells = new HashSet<Point>();
@@ -52,15 +48,16 @@ namespace SampleAi
                 var message = line.Split(' ').ToList();
                 switch (message[0])
                 {
-                    case "Init": 
-                        nonTargetCells.Clear();
-                        hotspots.Clear();
-                        woundedCells.Clear();
-                        shipSizes.Clear();
+                    case "Init":
                         boardSize.Width = int.Parse(message[1]);
                         boardSize.Height = int.Parse(message[2]);
                         shipSizes = message.GetRange(3, message.Count - 3).ConvertAll(int.Parse);
                         shipSizes.Sort();
+
+                        nonTargetCells.Clear();
+                        hotspots.Clear();
+                        woundedCells.Clear();
+                        sequence = new Stack<Point> (GenerateRandomSequence(boardSize, random));
                         break;
 
                     case "Miss":
@@ -83,9 +80,16 @@ namespace SampleAi
                         break;
                 }
 
-                aim = GetNextCell(boardSize, shipSizes, nonTargetCells, hotspots, random);
+                aim = GetNextCell(boardSize, shipSizes, nonTargetCells, hotspots, sequence);
                 Console.WriteLine("{0} {1}", aim.X, aim.Y);
             }
+        }
+
+        private static IEnumerable<Point> GenerateRandomSequence(Size boardSize, Random random)
+        {
+            return (from x in Enumerable.Range(0, boardSize.Width)
+                    from y in Enumerable.Range(0, boardSize.Height)
+                    select new Point(x, y)).OrderBy(point => random.Next());
         }
 
         private static bool CheckBounds(Point cell, Size boardSize)
@@ -111,7 +115,7 @@ namespace SampleAi
         }
 
         private static Point GetNextCell(Size boardSize, List<int> shipSizes, 
-            ICollection<Point> excluded, Stack<Point> hotspots, Random random)
+            ICollection<Point> excluded, Stack<Point> hotspots, Stack<Point> sequence)
         {
             while (hotspots.Count > 0)
             {
@@ -124,9 +128,8 @@ namespace SampleAi
             Point nextCell;
             do
             {
-                nextCell = new Point(random.Next(boardSize.Width), random.Next(boardSize.Height));
-            }
-            while (excluded.Contains(nextCell) || !IsShipPossible(boardSize, shipSizes[0], nextCell, excluded));
+                nextCell = sequence.Pop();
+            } while (excluded.Contains(nextCell) || !IsShipPossible(boardSize, shipSizes[0], nextCell, excluded));
             return nextCell;
         }
 
@@ -142,7 +145,7 @@ namespace SampleAi
 
         private static int FindMaxShipSize(Size boardSize, Point where, Func<Point, bool> included)
         {
-            var directions = new List<Size>() {new Size(1, 0), new Size(0, 1)};
+            var directions = new List<Size> {new Size(1, 0), new Size(0, 1)};
 
             return directions.Select(direction =>
             {
@@ -154,12 +157,12 @@ namespace SampleAi
 
                 var secondPoint = where;
                 var oppositeDirection = new Size(-direction.Width, -direction.Height);
-                while (included.Invoke(secondPoint) && CheckBounds(firstPoint, boardSize))
+                while (included.Invoke(secondPoint) && CheckBounds(secondPoint, boardSize))
                 {
-                    firstPoint += oppositeDirection;
+                    secondPoint += oppositeDirection;
                 }
 
-                return Math.Max(Math.Abs(secondPoint.X - firstPoint.X), Math.Abs(secondPoint.Y - firstPoint.Y) - 1);
+                return Math.Max(Math.Abs(secondPoint.X - firstPoint.X), Math.Abs(secondPoint.Y - firstPoint.Y)) - 1;
             }).Max();
         }
 
