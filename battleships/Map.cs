@@ -45,12 +45,11 @@ namespace battleships
             Horizontal
         } 
 
-        public List<Vector> GetOccupiedCells()
+        public IEnumerable<Vector> GetOccupiedCells()
         {
             var directionVector = GetDirectionVector(ShipDirection);
-            return (from i in Enumerable.Range(0, Size) 
-                    select directionVector.Mult(i).Add(Location))
-                    .ToList();
+            return from i in Enumerable.Range(0, Size)
+                select directionVector.Mult(i).Add(Location);
         }
 
         public static Vector GetDirectionVector(Direction direction)
@@ -96,7 +95,7 @@ namespace battleships
         {
             if (!CanPlaceShip(ship)) return false;
 
-            var shipCells = ship.GetOccupiedCells();
+            var shipCells = ship.GetOccupiedCells().ToList();
 
             shipCells.ForEach(cell =>
             {
@@ -132,7 +131,7 @@ namespace battleships
             return ShotEffect.Miss;
         }
 
-        public IEnumerable<Vector> Neighbours(Vector cell)
+        public IEnumerable<Vector> GetNeighbours(Vector cell)
         {
             return
                 from x in new[] { -1, 0, 1 }
@@ -154,7 +153,7 @@ namespace battleships
 
         public bool CanPlaceShip(Ship ship)
         {
-            var shipCells = ship.GetOccupiedCells();
+            var shipCells = ship.GetOccupiedCells().ToList();
             return CellsFit(shipCells) && AdjacentCellsAreEmpty(shipCells);
         }
 
@@ -165,7 +164,7 @@ namespace battleships
 
         private bool AdjacentCellsAreEmpty(IEnumerable<Vector> cells)
         {
-            return cells.SelectMany(Neighbours).All(c => this[c] == Cell.Empty);
+            return cells.SelectMany(GetNeighbours).All(c => this[c] == Cell.Empty);
         }
     }
 }
