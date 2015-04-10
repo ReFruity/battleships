@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Net.Mail;
 using System.Runtime.InteropServices;
@@ -24,7 +25,10 @@ namespace SampleAi
 
         static void Main()
         {
-            var random = new Random();
+//            Console.SetIn(File.OpenText("input.txt"));
+//            var random = new Random();
+            var random = new Random(42);
+            // Sequence: (6,1) (1,5) (1,2) (7,5) (0,2)
             var aim = new Point(0, 0);
             var boardSize = new Size(0, 0);
             var nonTargetCells = new HashSet<Point>();
@@ -75,15 +79,16 @@ namespace SampleAi
                         nonTargetCells.Add(aim);
                         woundedCells.Add(aim);
                         MarkDeadShipAdjacency(aim, boardSize, woundedCells, nonTargetCells);
+                        shipSizes.Remove(GetWoundedShipSize(boardSize, aim, woundedCells));
                         break;
                 }
 
-                aim = NextCell(boardSize, shipSizes, nonTargetCells, hotspots, random);
+                aim = GetNextCell(boardSize, shipSizes, nonTargetCells, hotspots, random);
                 Console.WriteLine("{0} {1}", aim.X, aim.Y);
             }
         }
 
-        private static bool WithinBoard(Point cell, Size boardSize)
+        private static bool CheckBounds(Point cell, Size boardSize)
         {
             var withinVertically = 0 <= cell.X && cell.X < boardSize.Width;
             var withinHorizontally = 0 <= cell.Y && cell.Y < boardSize.Height;
@@ -96,16 +101,16 @@ namespace SampleAi
             GetOffsetCells(aim, boardSize, adjacency).Where(woundedCells.Contains).ToList().ForEach(toMark =>
             {
                 var direction = new Size(toMark) - new Size(aim);
-                while (woundedCells.Contains(toMark) && WithinBoard(toMark, boardSize))
+                while (woundedCells.Contains(toMark) && CheckBounds(toMark, boardSize))
                 {
                     toMark += direction;
                 }
-                if (WithinBoard(toMark, boardSize))
+                if (CheckBounds(toMark, boardSize))
                     nonTargetCells.Add(toMark);
             });
         }
 
-        private static Point NextCell(Size boardSize, List<int> shipSizes, 
+        private static Point GetNextCell(Size boardSize, List<int> shipSizes, 
             ICollection<Point> excluded, Stack<Point> hotspots, Random random)
         {
             while (hotspots.Count > 0)
@@ -120,52 +125,50 @@ namespace SampleAi
             do
             {
                 nextCell = new Point(random.Next(boardSize.Width), random.Next(boardSize.Height));
-                if (!PossibleShip(boardSize, shipSizes[0], nextCell, excluded)) excluded.Add(nextCell);
             }
-            while (excluded.Contains(nextCell));
+            while (excluded.Contains(nextCell) || !IsShipPossible(boardSize, shipSizes[0], nextCell, excluded));
             return nextCell;
         }
 
-        private static bool PossibleShip(Size boardSize, int shipSize, Point where, ICollection<Point> excluded)
+        private static bool IsShipPossible(Size boardSize, int shipSize, Point where, ICollection<Point> excluded)
         {
-            var adjacencyList = adjacency.ToList();
-            var current = where;
-            var maxFittingShipSize = new Size(0, 0);
+            return FindMaxShipSize(boardSize, where, point => !excluded.Contains(point)) >= shipSize;
+        }
 
-            while (!excluded.Contains(current) && WithinBoard(current, boardSize))
-            {
-                current += adjacencyList[0];
-            }
-            maxFittingShipSize.Height = Math.Abs((where - (Size) current).Y);
-            current = where;
-            while (!excluded.Contains(current) && WithinBoard(current, boardSize))
-            {
-                current += adjacencyList[2];
-            }
-            maxFittingShipSize.Height += Math.Abs((where - (Size) current).Y) - 1;
+        private static int GetWoundedShipSize(Size boardSize, Point where, ICollection<Point> woundedCells)
+        {
+            return FindMaxShipSize(boardSize, where, woundedCells.Contains);
+        }
 
-            current = where;
-            while (!excluded.Contains(current) && WithinBoard(current, boardSize))
-            {
-                current += adjacencyList[1];
-            }
-            maxFittingShipSize.Width = Math.Abs((where - (Size) current).X);
-            current = where;
-            while (!excluded.Contains(current) && WithinBoard(current, boardSize))
-            {
-                current += adjacencyList[3];
-            }
-            maxFittingShipSize.Width += Math.Abs((where - (Size) current).X) - 1;
+        private static int FindMaxShipSize(Size boardSize, Point where, Func<Point, bool> included)
+        {
+            var directions = new List<Size>() {new Size(1, 0), new Size(0, 1)};
 
-            return shipSize <= maxFittingShipSize.Width || shipSize <= maxFittingShipSize.Height;
+            return directions.Select(direction =>
+            {
+                var firstPoint = where;
+                while (included.Invoke(firstPoint) && CheckBounds(firstPoint, boardSize))
+                {
+                    firstPoint += direction;
+                }
+
+                var secondPoint = where;
+                var oppositeDirection = new Size(-direction.Width, -direction.Height);
+                while (included.Invoke(secondPoint) && CheckBounds(firstPoint, boardSize))
+                {
+                    firstPoint += oppositeDirection;
+                }
+
+                return Math.Max(Math.Abs(secondPoint.X - firstPoint.X), Math.Abs(secondPoint.Y - firstPoint.Y) - 1);
+            }).Max();
         }
 
         private static IEnumerable<Point> GetOffsetCells(Point cell, Size size, IEnumerable<Size> offsets)
         {
             return from offset in offsets
-                let point = Point.Add(cell, offset)
-                where WithinBoard(point, size)
-                select point;
+                   let point = Point.Add(cell, offset)
+                   where CheckBounds(point, size)
+                   select point;
         } 
     }
 }
