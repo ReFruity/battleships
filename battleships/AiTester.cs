@@ -30,7 +30,7 @@ namespace battleships
 			{
 				var map = gen.GenerateMap();
 				var game = new Game(map, ai);
-				RunGameToEnd(game, vis);
+				RunGameToEnd(game, gameIndex, vis);
 				gamesPlayed++;
 				badShots += game.BadShots;
 				if (game.AiCrashed)
@@ -52,22 +52,31 @@ namespace battleships
 			WriteTotal(ai, shots, crashes, badShots, gamesPlayed);
 		}
 
-		private void RunGameToEnd(Game game, GameVisualizer vis)
+		private void RunGameToEnd(Game game, int gameIndex, GameVisualizer vis)
 		{
-			while (!game.IsOver())
-			{
-				game.MakeStep();
-				if (settings.Interactive)
-				{
-					vis.Visualize(game);
-					if (game.AiCrashed)
-						Console.WriteLine(game.LastError.Message);
-					Console.ReadKey();
-				}
-			}
+            var gameSteps = 1;
+		    var skipGame = false;
+		    while (!game.IsOver())
+		    {
+		        for (var i = 0; (i < gameSteps || skipGame) && !game.IsOver(); i++) game.MakeStep();
+                if (settings.Interactive && (game.IsOver() || !skipGame))
+                {
+                    vis.Visualize(game);
+                    Console.WriteLine("Game #{0}", gameIndex);
+                    if (game.AiCrashed)
+                        Console.WriteLine(game.LastError.Message);
+                    var key = Console.ReadKey();
+                    switch (key.KeyChar)
+                    {
+                        case 's': gameSteps = 100; break;
+                        case 'd': gameSteps = 1; break;
+                        case 'g': skipGame = true; break;
+                    }
+                }
+		    }
 		}
 
-		private void WriteTotal(Ai ai, List<int> shots, int crashes, int badShots, int gamesPlayed)
+	    private void WriteTotal(Ai ai, List<int> shots, int crashes, int badShots, int gamesPlayed)
 		{
 			if (shots.Count == 0) shots.Add(1000 * 1000);
 			shots.Sort();
